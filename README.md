@@ -13,6 +13,8 @@ Runs useful commands under docker only (such as nodejs) with readonly as default
 * npx (npx-rw)
 
 ## Examples
+
+### Create a test app
 ```
 mkdir /tmp/testapp
 cd /tmp/testapp
@@ -20,4 +22,12 @@ npm-rw init
 # Now configure your test application
 echo 'console.log("helloworld!");'>index.js
 node index
+```
+### Create a test react app
+
+```
+mkdir /tmp/react-app-test 
+cd /tmp/react-app-test
+npx-rw create-react-app .
+npm start
 ```
