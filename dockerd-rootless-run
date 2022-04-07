@@ -56,4 +56,5 @@ if [ ! -x "`command -v docker`" ]; then
   sudo sysctl --system
 fi
 
-docker run -it --rm --name my-running-script -v "$PWD:/usr/src/app:$RUNACCESS" -w /usr/src/app node:8 "$RUNBIN" "$@"
+# runs nodejs (LTS version)
+docker run -it --rm --name my-running-script -v "$PWD:/usr/src/app:$RUNACCESS" -w /usr/src/app node:16 "$RUNBIN" "$@"
