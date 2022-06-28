@@ -53,9 +53,44 @@ BINS_NODE_TAGS=( "" "16" "latest" )
 
 BINS_MOSQUITTO=( "mosquitto" "mosquitto_pub" "mosquitto_sub" "mosquitto_rr" "mosquitto-tls" "mosquitto_passwd" "mosquitto_ctrl" )
 
+default-mosquitto-config() {
+        cat <<- EOF
+        listener 1883
+        allow_anonymous true
+
+        listener 9001
+        protocol websockets
+        allow_anonymous true
+EOF
+}
+
+corretIt(){
+        if [[ "$BIN_NAME" == eclipse-mosquitto+(:*|) ]]; then
+                # Per: https://github.com/eclipse/mosquitto/blob/8212bbe29b6fc0a49c30a15b22a36ff0ac7b9d32/docker/2.0/Dockerfile
+
+                if [ "$BIN_BIN" == "mosquitto" ]; then
+                        ARGS+=( "-c" "/mosquitto/config/mosquitto.conf" )
+
+                        tmppipe=$(mktemp)
+                        default-mosquitto-config > "$tmppipe"
+                        
+                        DOCKER_FLAGS_EXTRAS+=( --publish 1883:1883 --publish 9001:9001 --volume "$tmppipe:/mosquitto/config/mosquitto.conf:ro" )
+                fi
+
+                if [[ "$BIN_BIN" =~ ^(mosquitto_sub|mosquitto_pub)$ ]]; then
+                        [ ! -f "$HOME/.config/mosquitto_sub" ] || DOCKER_FLAGS_EXTRAS+=( --volume "$HOME/.config/mosquitto_sub:/root/.config/mosquitto_sub:ro" )
+                        [ ! -f "$HOME/.config/mosquitto_pub" ] || DOCKER_FLAGS_EXTRAS+=( --volume "$HOME/.config/mosquitto_pub:/root/.config/mosquitto_pub:ro" )
+                
+                        DOCKER_FLAGS_EXTRAS+=( --network="host" )
+                fi
+        fi
+}
+
 makeLinks(){
-        linkItPre "node" BINS_NODE_BINS BINS_NODE_TAGS BIN_MODES_ALL
-        linkItPre "eclipse-mosquitto" BINS_MOSQUITTO BIN_TAGS_ALL BIN_MODES_ALL
+        BINS_VOLUME_PWD=true linkItPre "node" BINS_NODE_BINS BINS_NODE_TAGS BIN_MODES_ALL
+        BINS_VOLUME_PWD=false linkItPre "eclipse-mosquitto" BINS_MOSQUITTO BIN_TAGS_ALL BIN_MODES_ALL
+
+        rm "$tmppipe"
 }
 
 if [[ "$RUNBIN" == "$MAINSCRIPT" ]]; then
@@ -122,14 +157,23 @@ else
         ARGS=( "$@" )
         linkIt(){
                 if [[ "$1" == "$RUNBIN" ]]; then
+                        DOCKER_FLAGS_EXTRAS=( ${DOCKER_FLAGS:=} )
+                        
                         [ ! -x "`command -v dockerd-rootless-setuptool.sh`" ] \
                                 || [ -n "${DOCKER_HOST:=""}" ] \
                                 || export DOCKER_HOST=unix://$XDG_RUNTIME_DIR/docker.sock
                         
                         BIN_NAME="${BIN_NAME}:${BIN_TAG:=latest}"
 
-                        DOCKER_FLAGS=${DOCKER_FLAGS:=}
-                        docker run -it --rm $DOCKER_FLAGS -v "$PWD:/usr/src/app:${BIN_MODE:=ro}" -w /usr/src/app "${BIN_NAME}" "${BIN_BIN}" "${ARGS[@]}"
+                        corretIt
+
+                        if [ "$BINS_VOLUME_PWD" = true ]; then
+                                DOCKER_FLAGS_EXTRAS+=( -w /usr/src/app --volume "$PWD:/usr/src/app:${BIN_MODE:=ro}" )
+                        fi
+
+                        # Cant pipe with -it
+                        docker run -i --rm "${DOCKER_FLAGS_EXTRAS[@]}" "${BIN_NAME}" "${BIN_BIN}" "${ARGS[@]}"
+                        
                         exit
                 fi
         }
