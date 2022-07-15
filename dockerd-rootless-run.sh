@@ -172,7 +172,7 @@ else
                         fi
 
                         # Cant pipe with -it
-                        docker run -i --rm "${DOCKER_FLAGS_EXTRAS[@]}" "${BIN_NAME}" "${BIN_BIN}" "${ARGS[@]}"
+                        docker run -it --rm "${DOCKER_FLAGS_EXTRAS[@]}" "${BIN_NAME}" "${BIN_BIN}" "${ARGS[@]}"
                         
                         exit
                 fi
